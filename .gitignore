@@ -1,2 +1,4 @@
 test
 test_v0.1.4-linux-amd64*
+deprecated/
+dist/
