@@ -1,0 +1,35 @@
+name: Check GPG Signature on Merge to Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-gpg-signature:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+    - name: Install GPG
+      run: sudo apt-get install -y gnupg
+
+    - name: Get the latest commit
+      id: get_latest_commit
+      run: echo "::set-output name=commit::$(git rev-parse HEAD)"
+
+    - name: Get the commit signature
+      id: get_signature
+      run: echo "::set-output name=signature::$(git log --format='%GK' -1 ${{ steps.get_latest_commit.outputs.commit }})"
+
+    - name: Check the commit signature
+      run: |
+        SPECIFIC_GPG_KEY_ID="${{ secrets.ALLOWED_MAIN_COMMITTER_GPGKEYID }}"
+        if [ "${{ steps.get_signature.outputs.signature }}" != "$SPECIFIC_GPG_KEY_ID" ]; then
+          echo "Error: The commit is not signed by the allowed GPG key."
+          exit 1
+        else
+          echo "The commit is correctly signed by the specified GPG key."
+        fi
