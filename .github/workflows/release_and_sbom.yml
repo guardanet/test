@@ -17,6 +17,7 @@ jobs:
       commit: ${{ steps.ldflags.outputs.commit }}
       version: ${{ steps.ldflags.outputs.version }}
       tree-state: ${{ steps.ldflags.outputs.tree-state }}
+      tag: ${{ steps.ldflags.outputs.tag }}
     steps:
       - id: checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
@@ -28,6 +29,7 @@ jobs:
           echo "commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           echo "version=$(git describe --tags --always --dirty | cut -c2-)" >> "$GITHUB_OUTPUT"
           echo "tree-state=$(if git diff --quiet; then echo "clean"; else echo "dirty"; fi)" >> "$GITHUB_OUTPUT"
+          echo "tag=$(git describe --tags --always --dirty)" >> "$GITHUB_OUTPUT"
 
   # 2nd job - Build application with SLSA that attest to the build process        
   slsa-builder:
@@ -105,7 +107,9 @@ jobs:
           - linux
         arch:
           - amd64
-    needs: [sbom]
+    needs: 
+      - args
+      - sbom
     permissions:
       actions: read # To read the workflow path.
       id-token: write # To sign the provenance.
@@ -113,27 +117,27 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
       base64-subjects: "${{ needs.sbom.outputs.hashes }}"
-      upload-assets: false # do not upload to a new release as we are working in the new release
+      upload-assets: true # do not upload to a new release as we are working in the new release
+      upload-tag-name: ${{needs.args.outputs.tag}}
+  # upload-provenance:
+  #   strategy:
+  #     matrix:
+  #       os:
+  #         - linux
+  #       arch:
+  #         - amd64
+  #   needs: provenance
+  #   permissions:
+  #     actions: read # To read the workflow path.    
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
 
-  upload-provenance:
-    strategy:
-      matrix:
-        os:
-          - linux
-        arch:
-          - amd64
-    needs: provenance
-    permissions:
-      actions: read # To read the workflow path.    
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
-
-      - name: Download Release Artifact
-        id: upload_provenance
-        env: 
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG=$(gh release list --limit 1 | awk '{print $1}')
-          gh release upload $TAG ${{ needs.provenance.outputs.provenance-name }}
+  #     - name: Download Release Artifact
+  #       id: upload_provenance
+  #       env: 
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       run: |
+  #         TAG=$(gh release list --limit 1 | awk '{print $1}')
+  #         gh release upload $TAG ${{ needs.provenance.outputs.provenance-name }}
