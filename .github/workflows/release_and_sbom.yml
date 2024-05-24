@@ -80,7 +80,7 @@ jobs:
         run: |
           TAG=$(gh release list --limit 1 | awk '{print $1}')
           # only download the binary
-          gh release download $TAG -p '*.${{matrix.os}}-${{matrix.arch}}'
+          gh release download $TAG -p "${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}"
 
       - name: Install Syft
         run: |
