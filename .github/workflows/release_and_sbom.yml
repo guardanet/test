@@ -73,32 +73,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
 
-      - name: Download Release Artifact
-        id: download_artifact
-        env: 
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate SBOM and Checksum
+        id: generate_sbom_checksum
         run: |
           TAG=$(gh release list --limit 1 | awk '{print $1}')
-          # only download the binary
+          # download only the binary
           gh release download $TAG -p "${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}"
-
-      - name: Install Syft
-        run: |
+          # install syft
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-  
-      - name: Generate SBOM
-        id: generate_sbom
-        run: |
+          # generate SBOM
           syft ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}} --output spdx-json=${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.json
-
-      - name: Generate & Upload SHA-256 Checksums
-        run: |
+          # create checksum.txt
           for file in ${{ github.event.repository.name }}*; do
             sha256sum "$file" >> checksum.txt
           done
-          TAG=$(gh release list --limit 1 | awk '{print $1}')
+          # upload checksum.txt to release 
           gh release upload $TAG checksum.txt
-          
+
       - name: Generate subjects
         id: subjects
         run: |
