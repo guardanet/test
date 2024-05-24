@@ -72,12 +72,15 @@ jobs:
     steps: 
       - name: Checkout Code
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
+        
+      - name: Download Release Artifact
+        id: download_artifact
+        env: 
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release list --limit 1 | awk '{print $1}')
+          gh release download $TAG --dir ./downloaded_artifacts
 
-      # - name: Download Binaries
-      #   uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-      #   with:
-      #     name: test_${{ needs.args.outputs.version }}-${{matrix.os}}-${{matrix.arch}}
-      
       - name: Set up Go
         uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
         with:
