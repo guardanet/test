@@ -50,7 +50,7 @@ jobs:
       config-file: .slsa-goreleaser/${{matrix.os}}-${{matrix.arch}}.yml
       upload-assets: true
   
-  sbom-goreleaser:
+  sbom:
     name: sbom-${{matrix.os}}-${{matrix.arch}}
     needs: 
       - slsa-builder
@@ -72,7 +72,7 @@ jobs:
     steps: 
       - name: Checkout Code
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
-        
+
       - name: Download Release Artifact
         id: download_artifact
         env: 
@@ -81,46 +81,30 @@ jobs:
           TAG=$(gh release list --limit 1 | awk '{print $1}')
           gh release download $TAG --dir ./downloaded_artifacts
 
-      - name: Set up Go
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
-        with:
-          go-version: "1.22"
-          check-latest: true
-  
       - name: Install Syft
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
   
-      - name: Run GoReleaser
-        id: run-goreleaser
-        uses: goreleaser/goreleaser-action@b953231f81b8dfd023c58e0854a721e35037f28b # tag=v3
-        with:
-            version: "~> v1"
-            args: release --clean
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
+      - name: Generate SBOM
+        id: generate_sbom
+        run: |
+          syft ./downloaded_artifacts/${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}} --output spdx-json=./downloaded_artifacts/${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.json
+
+      - name: Generate SHA-256 Checksums
+        run: |
+          cd ./downloaded_artifacts
+          for file in ${{ github.event.repository.name }}*; do
+            sha256sum "$file" >> checksum.txt
+          done
+          
       - name: Generate subjects
         id: subjects
-        env:
-            ARTIFACTS: "${{ steps.run-goreleaser.outputs.artifacts }}"
-        # and below we extract artifacts and corresponding digests from artifacts.josn created by the goreleaser
-        # echo "hashes=$hashes" >> $GITHUB_OUTPUT will make the hashes available as subjects.outputs.hashes inside this job
-        # and as build-goreleaser.outputs.hashed outside the job
-        # 
-        # one other option is to just use checksum.txt that I create as part of my 
-        # goreleaser configuration .goreleaser.yaml
-          # checksum:
-          #   name_template: 'checksums.txt'
-          #   algorithm: sha256
         run: |
           set -euo pipefail
 
-          hashes=$(echo $ARTIFACTS | jq --raw-output '.[] | {name, "digest": (.extra.Digest // .extra.Checksum)} | select(.digest) | {digest} + {name} | join("  ") | sub("^sha256:";"")' | base64 -w0)
-          if test "$hashes" = ""; then # goreleaser < v1.13.0
-            checksum_file=$(echo "$ARTIFACTS" | jq -r '.[] | select (.type=="Checksum") | .path')
-            hashes=$(cat $checksum_file | base64 -w0)
-          fi
+          hashes=$(cat checksum.txt | base64 -w0)
           echo "hashes=$hashes" >> $GITHUB_OUTPUT
+
   provenance:
     strategy:
       matrix:
@@ -128,12 +112,12 @@ jobs:
           - linux
         arch:
           - amd64
-    needs: [sbom-goreleaser]
+    needs: [sbom]
     permissions:
       actions: read # To read the workflow path.
       id-token: write # To sign the provenance.
       contents: write # To add assets to a release.
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
-      base64-subjects: "${{ needs.sbom-goreleaser.outputs.hashes }}"
+      base64-subjects: "${{ needs.sbom.outputs.hashes }}"
       upload-assets: true # upload to a new release
