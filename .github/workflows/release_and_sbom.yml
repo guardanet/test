@@ -74,6 +74,8 @@ jobs:
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # tag=v2.3.4
 
       - name: Generate SBOM and Checksum
+        env: 
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         id: generate_sbom_checksum
         run: |
           TAG=$(gh release list --limit 1 | awk '{print $1}')
