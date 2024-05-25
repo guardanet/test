@@ -85,8 +85,11 @@ jobs:
           gh release download $TAG -p "${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}"
           # install syft
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          # generate SBOM
-          syft ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}} --output spdx-json=${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.json
+          # generate and upload SBOM
+          syft ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}} --output spdx-json=${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.spdx.json
+          syft ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}} --output cyclonedx-json=${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.cyclonedx.json
+          gh release upload $TAG ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.spdx.json
+          gh release upload $TAG ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}.sbom.cyclonedx.json
           # create checksum.txt
           for file in ${{ github.event.repository.name }}*; do
             sha256sum "$file" >> checksum.txt
