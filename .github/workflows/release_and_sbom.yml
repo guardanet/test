@@ -53,6 +53,11 @@ jobs:
       upload-assets: true
   
   sbom:
+    permissions:
+      contents: write # To upload release assets.
+      actions: read   # To read workflow path.
+      security-events: write # To upload sarif file with vuln scan results
+
     name: sbom-${{matrix.os}}-${{matrix.arch}}
     needs: 
       - slsa-builder
