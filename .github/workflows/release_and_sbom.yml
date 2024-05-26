@@ -73,8 +73,6 @@ jobs:
           - linux
         arch:
           - amd64
-    permissions:
-      contents: write # To upload release assets.
 
     steps: 
       - name: Checkout Code
