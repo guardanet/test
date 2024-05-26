@@ -87,13 +87,14 @@ jobs:
         uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751 #v0.16.0 
         with:
           format: spdx-json
-          output-file: "${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}-sbom.spdx.json"
+          artifact-name: ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}-sbom.spdx.json
+          output-file: ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}-sbom.spdx.json
 
       - name: 
         id: scan
         uses: anchore/scan-action@3343887d815d7b07465f6fdcd395bd66508d486a #v3.6.4
         with:
-          sbom: "${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}-sbom.spdx.json"
+          sbom: ${{ github.event.repository.name }}_${{needs.args.outputs.version}}-${{matrix.os}}-${{matrix.arch}}-sbom.spdx.json
           fail-build: true
           severity-cutoff: critical
 
@@ -107,13 +108,12 @@ jobs:
           for file in ${{ github.event.repository.name }}*; do
             sha256sum "$file" >> checksum.txt
           done
+          cat checksum.txt
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@c004fb4bf6b1e87680ce1b219a3ad0b8e5dfb7ec #v4.3.3
+      - name: Upload Checksum
+        uses: softprops/action-gh-release@0a76e4214a22dfa2946790a0b56e12720488e0d2 #v2.0.5
         with:
-          name: artifacts
-          path: |
-            *-sbom.spdx.json
+          files: |
             checksum.txt
 
       - name: Generate subjects
